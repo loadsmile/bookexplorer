@@ -1,46 +1,69 @@
-import React, { useState } from 'react';
-import { Container, Form, Button, Row, Col, Card, Alert } from 'react-bootstrap';
-
-const apiKey = process.env.REACT_APP_GOOGLE_BOOKS_API_KEY;
+import React, { useState, useEffect, useCallback } from 'react';
+import { Container, Form, Row, Col, Card, Alert } from 'react-bootstrap';
 
 const BookExplorer = () => {
   const [query, setQuery] = useState('');
   const [books, setBooks] = useState([]);
   const [error, setError] = useState(null);
+  const [startIndex, setStartIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
 
+  const maxResults = 40; // Maximum allowable value
   const apiKey = process.env.REACT_APP_GOOGLE_BOOKS_API_KEY;
 
-  const searchBooks = async () => {
-    if (query) {
-      setBooks([]);  // Clear the previous results
-      setError(null);  // Clear previous errors
+  const searchBooks = async (newQuery = query, newStartIndex = startIndex) => {
+    if (newQuery) {
+      setLoading(true); // Set loading to true before fetching data
+      setError(null); // Clear previous errors
       try {
-        const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${query}&key=${apiKey}`);
+        const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${newQuery}&startIndex=${newStartIndex}&maxResults=${maxResults}&key=${apiKey}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        console.log(data); // Log the response
         if (data.items) {
-          setBooks(data.items);
+          setBooks(prevBooks => [...prevBooks, ...data.items]); // Append new results to existing books
           setError(null);
         } else {
-          setBooks([]);
-          setError('No books found');
+          if (newStartIndex === 0) {
+            setBooks([]);
+            setError('No books found');
+          }
         }
       } catch (error) {
         console.error('Error fetching data:', error);
         setError('Error fetching data');
       }
+      setLoading(false); // Set loading to false after fetching data
     }
   };
 
   const handleKeyDown = (event) => {
     if (event.key === 'Enter') {
       event.preventDefault(); // Prevent the default form submission
-      searchBooks();
+      setBooks([]); // Clear previous results
+      setStartIndex(0); // Reset startIndex
+      searchBooks(query, 0); // Fetch new results
     }
   };
+
+  const handleScroll = useCallback(() => {
+    if (window.innerHeight + document.documentElement.scrollTop !== document.documentElement.offsetHeight || loading) {
+      return;
+    }
+    setStartIndex(prevIndex => prevIndex + maxResults);
+  }, [loading]);
+
+  useEffect(() => {
+    if (startIndex !== 0) {
+      searchBooks(query, startIndex);
+    }
+  }, [startIndex]);
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
 
   return (
     <Container className="mt-5">
@@ -54,7 +77,6 @@ const BookExplorer = () => {
           className="w-50"
           onKeyDown={handleKeyDown}
         />
-        <Button className="ml-2" onClick={searchBooks}>Search</Button>
       </Form>
       {error && <Alert variant="danger" className="mt-4">{error}</Alert>}
       <Row className="mt-4">
@@ -70,6 +92,7 @@ const BookExplorer = () => {
           </Col>
         ))}
       </Row>
+      {loading && <div className="text-center">Loading...</div>}
     </Container>
   );
 };

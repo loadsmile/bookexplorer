@@ -1,25 +1,28 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Form, Button, Row, Col, Card, Alert } from 'react-bootstrap';
+import React, { useState, useCallback } from 'react';
+import { Container, Form, Button, Row, Col, Card, Alert, Dropdown, DropdownButton } from 'react-bootstrap';
 
-const BookExplorer = () => {
+const BookExplorer = ({ bookshelves, setBookshelves, selectedBookshelf, setSelectedBookshelf }) => {
   const [query, setQuery] = useState('');
   const [books, setBooks] = useState([]);
   const [error, setError] = useState(null);
-  const [startIndex, setStartIndex] = useState(0); // Start from the first result
-  const [loading, setLoading] = useState(false); // Track loading state
-  const maxResults = 40; // Maximum allowable value
-
+  const [startIndex, setStartIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const maxResults = 40;
   const apiKey = process.env.REACT_APP_GOOGLE_BOOKS_API_KEY;
 
   const searchBooks = useCallback(async (newQuery, newStartIndex) => {
-    setLoading(true); // Set loading to true before fetching data
-    setError(null); // Clear previous errors
+    setLoading(true);
+    setError(null);
+
     try {
       const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${newQuery}&startIndex=${newStartIndex}&maxResults=${maxResults}&key=${apiKey}`);
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+
       const data = await response.json();
+
       if (data.items) {
         setBooks(data.items);
         setError(null);
@@ -31,17 +34,17 @@ const BookExplorer = () => {
       console.error('Error fetching data:', error);
       setError('Error fetching data');
     }
-    setLoading(false); // Set loading to false after fetching data
+    setLoading(false);
   }, [apiKey, maxResults]);
 
   const handleSearch = () => {
-    setStartIndex(0); // Reset startIndex
-    searchBooks(query, 0); // Fetch new results
+    setStartIndex(0);
+    searchBooks(query, 0);
   };
 
   const handleKeyDown = (event) => {
     if (event.key === 'Enter') {
-      event.preventDefault(); // Prevent the default form submission
+      event.preventDefault();
       handleSearch();
     }
   };
@@ -49,22 +52,25 @@ const BookExplorer = () => {
   const handleNextPage = () => {
     const newStartIndex = startIndex + maxResults;
     setStartIndex(newStartIndex);
+    searchBooks(query, newStartIndex);
   };
 
   const handlePreviousPage = () => {
     const newStartIndex = Math.max(0, startIndex - maxResults);
     setStartIndex(newStartIndex);
+    searchBooks(query, newStartIndex);
   };
 
-  // Fetch books whenever startIndex or query changes
-  useEffect(() => {
-    if (query) {
-      searchBooks(query, startIndex);
-    }
-  }, [query, startIndex, searchBooks]);
-
-  // Calculate the current page number
   const currentPage = Math.floor(startIndex / maxResults) + 1;
+
+  const handleAddBookshelf = (bookshelfName) => {
+    setBookshelves([...bookshelves, bookshelfName]);
+  };
+
+  const handleSelectBookshelf = (bookId, bookshelfName) => {
+    const bookDetails = books.find(book => book.id === bookId).volumeInfo;
+    setSelectedBookshelf({ ...selectedBookshelf, [bookId]: {...bookDetails, bookshelfName} });
+  };
 
   return (
     <Container className="mt-5">
@@ -89,6 +95,23 @@ const BookExplorer = () => {
               <Card.Body>
                 <Card.Title>{book.volumeInfo.title}</Card.Title>
                 <Card.Text>{book.volumeInfo.authors?.join(', ')}</Card.Text>
+                <DropdownButton id="dropdown-basic-button" title="Add to Bookshelf">
+                  {bookshelves.map((shelf) => (
+                    <Dropdown.Item key={shelf} onClick={() => handleSelectBookshelf(book.id, shelf)}>
+                      {shelf}
+                    </Dropdown.Item>
+                  ))}
+                  <Dropdown.Divider />
+                  <Dropdown.Item onClick={() => {
+                    const newBookshelf = prompt('Enter new bookshelf name:');
+                    if (newBookshelf) {
+                      handleAddBookshelf(newBookshelf);
+                      handleSelectBookshelf(book.id, newBookshelf);
+                    }
+                  }}>
+                    Add New Bookshelf
+                  </Dropdown.Item>
+                </DropdownButton>
               </Card.Body>
             </Card>
           </Col>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Navbar, Nav, Form, Button, Modal } from 'react-bootstrap';
-import styles from './Navbar.module.css'; // Import the CSS module
+import { LinkContainer } from 'react-router-bootstrap';
+import styles from './Navbar.module.css'; // Ensure this path is correct
 
 const AppNavbar = ({ user, onLogin, onLogout }) => {
   const [show, setShow] = useState(false);
@@ -28,7 +29,14 @@ const AppNavbar = ({ user, onLogin, onLogout }) => {
         <Navbar.Toggle aria-controls="basic-navbar-nav" className={styles.customToggle} />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="ms-auto">
-            <Nav.Link href="#">Home</Nav.Link>
+            <LinkContainer to="/">
+              <Nav.Link>Home</Nav.Link>
+            </LinkContainer>
+            {user && (
+              <LinkContainer to="/bookshelves">
+                <Nav.Link>My Bookshelves</Nav.Link>
+              </LinkContainer>
+            )}
             {user ? (
               <Button variant="outline-danger" onClick={onLogout}>Logout</Button>
             ) : (
